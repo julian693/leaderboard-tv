@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Speed of Service — Top 3</title>
+<style>
+:root { --bg:#0b0f14; --fg:#eef2f7; --muted:#9aa4b2; }
+body {
+margin:0; background:var(--bg); color:var(--fg);
+font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+height:100vh; display:flex; align-items:center; justify-content:center;
+}
+.wrap { width:95vw; max-width:1600px; }
+.title { text-align:center; font-weight:900; font-size:56px; }
+.subtitle { text-align:center; color:var(--muted); margin-bottom:28px; }
+
+.podium { display:grid; grid-template-columns:1fr 1.2fr 1fr; gap:22px; align-items:end; }
+
+.card {
+border-radius:28px; padding:24px;
+background:rgba(255,255,255,.06);
+box-shadow:0 12px 30px rgba(0,0,0,.35);
+transition:transform 600ms ease, box-shadow 800ms ease;
+}
+.first { outline:2px solid rgba(255,215,0,.6); min-height:420px; }
+.second { outline:2px solid rgba(192,192,192,.5); min-height:360px; }
+.third { outline:2px solid rgba(205,127,50,.5); min-height:330px; }
+
+.place { font-size:22px; font-weight:900; }
+.name { text-align:center; font-size:60px; font-weight:900; }
+.time { text-align:center; font-size:46px; font-weight:800; }
+
+.fast { color:#32d583; }
+.ok { color:#fdb022; }
+.slow { color:#f97066; }
+
+.swap { transform:translateY(-10px) scale(1.01); }
+.glow { box-shadow:0 0 40px 10px rgba(255,215,0,.35); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="title">Speed of Service — Top 3</div>
+<div class="subtitle" id="week"></div>
+
+<div class="podium">
+<div class="card second" id="p2"><div class="place">🥈</div><div class="name">—</div><div class="time">—</div></div>
+<div class="card first" id="p1"><div class="place">🥇</div><div class="name">—</div><div class="time">—</div></div>
+<div class="card third" id="p3"><div class="place">🥉</div><div class="name">—</div><div class="time">—</div></div>
+</div>
+</div>
+
+<script>
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiIckJ_4DPmQiY2sBmYPYZn9wpO1aSH5v665bEvbTVv6ia-77EyzYAi8EY5gvb16P7nx-zywNmuI9r/pub?gid=0&single=true&output=csv";
+const FAST_MAX = 170; // 2:50
+const OK_MAX = 195; // 3:15
+const REFRESH = 15000;
+
+function mmss(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,'0')}`;}
+function weekStart(d){const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+6)%7));x.setHours(0,0,0,0);return x;}
+function cls(s){return s<=FAST_MAX?'fast':s<=OK_MAX?'ok':'slow';}
+
+let last = ["","",""];
+
+async function tick(){
+const csv = await fetch(CSV_URL,{cache:'no-store'}).then(r=>r.text());
+const [h,...r] = csv.trim().split("\n").map(l=>l.split(","));
+const rows = r.map(x=>({p:x[0], d:new Date(x[1]), s:+x[2]}));
+const ws = weekStart(new Date());
+
+const map={};
+rows.filter(x=>x.d>=ws).forEach(x=>{
+map[x.p]=(map[x.p]||[]).concat(x.s);
+});
+
+const top = Object.entries(map)
+.map(([p,v])=>({p,avg:v.reduce((a,b)=>a+b)/v.length}))
+.sort((a,b)=>a.avg-b.avg)
+.slice(0,3);
+
+["p1","p2","p3"].forEach((id,i)=>{
+const el=document.getElementById(id);
+const cur=top[i];
+if(!cur) return;
+el.querySelector(".name").textContent=cur.p;
+const sec=Math.round(cur.avg);
+const t=el.querySelector(".time");
+t.textContent=mmss(sec);
+t.className=`time ${cls(sec)}`;
+
+if(last[i]!==cur.p){
+el.classList.add("swap");
+if(id==="p1") el.classList.add("glow");
+setTimeout(()=>el.classList.remove("swap","glow"),1200);
+}
+last[i]=cur.p;
+});
+
+document.getElementById("week").textContent =
+`Week of ${ws.toLocaleDateString()}`;
+}
+
+tick();
+setInterval(tick, REFRESH);
+</script>
+</body>
+</html>
